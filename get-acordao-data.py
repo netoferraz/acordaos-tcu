@@ -6,7 +6,7 @@ from selenium.common.exceptions import (
     InvalidArgumentException,
 )
 from selenium.webdriver.support.ui import Select
-from selenium.webdriver import Firefox, Chrome
+from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.chrome.options import Options as chromeOptions
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary

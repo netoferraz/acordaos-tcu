@@ -6,10 +6,10 @@ import gc
 from typing import List, Dict, Union, Text
 from numbers import Number
 from pathlib import Path
-import selenium
+from selenium.webdriver import firefox
 
-firefox_webelements = selenium.webdriver.firefox.webelement.FirefoxWebElement
-firefox_webdriver = selenium.webdriver.firefox.webdriver.WebDriver
+firefox_webelements = firefox.webelement.FirefoxWebElement
+firefox_webdriver = firefox.webdriver.WebDriver
 
 
 def parse_json_year_date(year: Number, fullpath: Path) -> Union[Path, None]:
@@ -73,7 +73,8 @@ def select_files_based_on_year(path: Path, year: str) -> List[Path]:
     if not isinstance(path, Path):
         raise TypeError("O parâmetro path deve do tipo Path.")
     container_of_json_year = []
-    for dirname, _, filenames in os.walk(path):
+    path_to_str = str(path.absolute())
+    for dirname, _, filenames in os.walk(path_to_str):
         for filename in filenames:
             path_filename = Path(os.path.join(dirname, filename))
             check_pattern = parse_json_year_date(year, path_filename)
@@ -102,6 +103,8 @@ def pipeline_to_get_urn(
         raise TypeError("O parâmetro patterns precisa ser uma lista.")
     for year in years:
         container_of_json_year = select_files_based_on_year(path, year)
+        if not container_of_json_year:
+            raise ValueError(f"Não há dados relativos ao {path} e {year}.")
         # sort by filename
         container_of_json_year = sorted(
             container_of_json_year, key=lambda x: int(x.name.split("_")[0])
