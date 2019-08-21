@@ -10,6 +10,10 @@ from selenium.common.exceptions import (
 )
 from typing import List, Dict, Union, Text
 import pandas as pd
+from loguru import logger
+from datetime import datetime
+datetime_now = datetime.now().strftime("%Y-%m-%d").replace("-","_")
+logger.add(f"./logs/{datetime_now}_file.log")
 
 firefox_webdriver = firefox.webdriver.WebDriver
 firefox_webelements = firefox.webelement.FirefoxWebElement
@@ -49,7 +53,7 @@ class AcordaosTCU:
             )
             if filter_elems:
                 if len(filter_elems) > 1:
-                    print("Há mais de um elemento no filtro.")
+                    logger.debug("Há mais de um elemento no filtro.")
                 for elem in filter_elems:
                     href = elem.find_elements_by_class_name("noprint")[0].get_attribute("href")
                     self.driver.get(href)
@@ -61,7 +65,7 @@ class AcordaosTCU:
                         )
                     except (NoSuchElementException, TimeoutException) as error:
                         # raise error("Não foi possível o popup de ajuda")
-                        print("Não há elemento de ajuda aberto na página")
+                        pass
                     else:
                         elemento_ajuda = self.driver.find_element_by_css_selector(pop_up_classname)
                         # fecha o elemento de ajuda
@@ -84,16 +88,17 @@ class AcordaosTCU:
                         dados_acordao = self.coleta_dados_pagina_acordao(self.driver)
                         dados_acordao['url'] = href
                         self.container_of_acordaos.append(dados_acordao)
+                        logger.info(f"Finalizado coleta do link {url}.")
             else:
-                print("Não há links originais a serem parseados.")
+                logger.info("Não há links originais a serem parseados.")
         self.driver.close()
 
     def to_csv(self, filename: str):
         df = pd.DataFrame(self.container_of_acordaos)
         str_columns = df.select_dtypes('object').columns.tolist()
         for col in str_columns:
-            df[col] = df[col].apply(lambda x : x.replace("\n", " "))
-        df.to_csv(f"{filename}.csv", encoding='utf8', sep=';')
+            df[col] = df[col].apply(lambda x : x.replace("\n", " ") if x else x)
+        df.to_csv(f"{filename}.csv", encoding='utf8', sep=';', index=False)
 
     @staticmethod
     def filter_elements_of_interest(
