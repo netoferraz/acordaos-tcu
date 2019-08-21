@@ -5,7 +5,7 @@ from pathlib import Path
 folder_to_look = Path("C:/Users/josefn/Documents/opensource/lxml-acervo/data")
 if not folder_to_look.is_dir():
     raise ValueError("O path indicado não existe.")
-years = list(range(2010, 2020))
+years = list(range(2000, 2010))
 tcu_urns = pipeline_to_get_urn(
     path=folder_to_look,
     years=years,
