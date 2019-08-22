@@ -192,3 +192,15 @@ def insert_into_db(
         f"INSERT INTO {table_name} {cols_to_insert} VALUES {question_mark_str}"
     )
     cursor.executemany(insert_string, data)
+
+def search_for_urn(logmsg: str) -> str:
+    """
+    Encontra urns nas mensagens de log.
+    """
+    re_pattern = r'http(s)?:\/\/www\.\w+\.\w+\.\w+\/\w+\/'
+    look_for_urn = re.search(re_pattern, logmsg).span()[1]
+    urn = logmsg[look_for_urn:-1]
+    return urn
+
+def query_db(query_string: str, cursor: sqlite3.Cursor):
+    yield cursor.execute(query_string).fetchall()

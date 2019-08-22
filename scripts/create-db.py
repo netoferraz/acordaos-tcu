@@ -36,4 +36,6 @@ CREATE TABLE download_acordaos (
         downloaded_at DATE
 );
 """)
+cursor.execute("CREATE INDEX urnindex ON download_acordaos(urn);")
+conn.commit()
 conn.close()
