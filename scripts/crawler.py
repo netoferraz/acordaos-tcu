@@ -116,7 +116,7 @@ class AcordaosTCU:
                             dados_acordao = self.coleta_dados_pagina_acordao(self.driver)
                             dados_acordao["url_tcu"] = href
                             dados_acordao["urn"] = AcordaosTCU.search_for_urn(url)
-                            dados_acordao = {key: str(value).replace("\n", "") for key, value in dados_acordao.items()}
+                            dados_acordao = {key: str(value).replace("\n", "").replace("'"," ") for key, value in dados_acordao.items()}
                             # atualiza o banco de dados
                             AcordaosTCU.update_a_record(dados_acordao, self.cursor)
                             self.conn.commit()
@@ -411,7 +411,10 @@ class AcordaosTCU:
         SET {parse_values_to_update} 
         WHERE urn = '{container['urn']}'
         """
-        cursor.execute(update_string)
+        try:
+            cursor.execute(update_string)
+        except sqlite3.OperationalError as error:
+            raise ValueError(update_string)
 
     @staticmethod
     def format_update_string(container: Dict) -> str:
