@@ -47,7 +47,7 @@ class AcordaosTCU:
             # localiza no dom o container de "Outras Publicações"
             target_class = "panel-body"
             try:
-                WebDriverWait(self.driver, 30).until(
+                WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CLASS_NAME, target_class))
                 )
             except (NoSuchElementException, TimeoutException) as error:
@@ -78,7 +78,7 @@ class AcordaosTCU:
                         elemento_ajuda = self.driver.find_element_by_css_selector(pop_up_classname)
                         # fecha o elemento de ajuda
                         try:
-                            WebDriverWait(self.driver, 30).until(
+                            WebDriverWait(self.driver, 10).until(
                                 EC.invisibility_of_element_located((By.CLASS_NAME, 'tcu-spinner ng-star-inserted'))
                             )
                         except (NoSuchElementException, TimeoutException) as error:

@@ -163,7 +163,7 @@ def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
         insert_into_db(
             data=data_to_insert,
             table_name="download_acordaos",
-            cols_names=["urn", "url"],
+            cols_names=["urn", "url_lexml"],
             cursor=cursor,
         )
 
