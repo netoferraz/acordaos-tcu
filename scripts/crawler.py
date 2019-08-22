@@ -26,15 +26,23 @@ class AcordaosTCU:
         self.driver = driver
         self.container_of_acordaos = []
 
-    def get_urls(self, years: List[int]):
+    def get_urls(self, years: Union[List[int], int]):
         self.urls = []
-        for year in years:
-            load_url_data = pd.read_csv(f"./data/tcu_{year}.csv")
+        if not isinstance(years, (List, int)):
+            raise TypeError("O input precisa ser int ou uma lista.")
+
+        if isinstance(years, List):
+            for year in years:
+                load_url_data = pd.read_csv(f"./data/tcu_{year}.csv")
+                urls = load_url_data["url"].unique().tolist()
+                self.urls.extend(urls)
+        else:
+            load_url_data = pd.read_csv(f"./data/tcu_{years}.csv")
             urls = load_url_data["url"].unique().tolist()
-            self.urls.extend(urls)
+            self.urls.extend(urls)           
 
     def parse_urls(self):
-        for url in self.urls[2534:]:
+        for url in self.urls[3482:]:
             self.driver.get(url)
             # localiza no dom o container de "Outras Publicações"
             target_class = "panel-body"

@@ -114,3 +114,6 @@ driver
 
 #logs
 logs
+
+#database
+db

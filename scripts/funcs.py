@@ -3,14 +3,21 @@ import pandas as pd
 import json
 import re
 import gc
-from typing import List, Dict, Union, Text
+from configparser import ConfigParser
+from pathlib import Path
+from typing import List, Dict, Union, Text, Tuple
 from numbers import Number
 from pathlib import Path
+from selenium.webdriver import Firefox
 from selenium.webdriver import firefox
+from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException
+from scripts.crawler import AcordaosTCU
+import sqlite3
 
 firefox_webelements = firefox.webelement.FirefoxWebElement
 firefox_webdriver = firefox.webdriver.WebDriver
+
 
 def parse_json_year_date(year: Number, fullpath: Path) -> Union[Path, None]:
     """
@@ -132,3 +139,56 @@ def create_df_for_urn_data_and_save(data: Dict, filename: str) -> None:
     path_to_save.mkdir(parents=True, exist_ok=True)
     path_to_save = path_to_save / f"{filename}.csv"
     x.to_csv(path_to_save, encoding="utf8", index=False)
+
+
+def initiate_webdriver() -> firefox_webdriver:
+    config = ConfigParser()
+    config.read("config.ini")
+    driver = config["driver"]["driver"]
+    options = Options()
+    options.headless = True
+    path_to_save_logs = Path(config["driver"]["driver_logs"])
+    if not path_to_save_logs.parent.is_dir():
+        path_to_save_logs.mkdir(parents=True, exist_ok=True)
+    browser = Firefox(
+        executable_path=driver, service_log_path=path_to_save_logs, options=options
+    )
+    return browser
+
+
+def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
+    for year in years:
+        df = pd.read_csv(f"./data/tcu_{year}.csv", sep=",", encoding="utf8")
+        data_to_insert = [(data.urn, data.url) for data in df.itertuples()]
+        insert_into_db(
+            data=data_to_insert,
+            table_name="download_acordaos",
+            cols_names=["urn", "url"],
+            cursor=cursor,
+        )
+
+
+def initiate_db(strcnx: str) -> sqlite3.Cursor:
+    """
+    Conecta no banco sqlite
+
+    Atributos:
+        strcnx: string de conexão.
+    """
+    strcnx_is_valid = Path(strcnx)
+    if not strcnx_is_valid.is_file():
+        raise ("O arquivo sqlite3 não existe.")
+    conn = sqlite3.connect(strcnx)
+    cur = conn.cursor()
+    return conn, cur
+
+
+def insert_into_db(
+    data: Tuple, table_name: str, cols_names: List[str], cursor: sqlite3.Cursor
+) -> None:
+    cols_to_insert = f"({','.join(cols_names)})"
+    question_mark_str = f"({','.join(['?' for col in cols_names])})"
+    insert_string = (
+        f"INSERT INTO {table_name} {cols_to_insert} VALUES {question_mark_str}"
+    )
+    cursor.executemany(insert_string, data)
