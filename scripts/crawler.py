@@ -34,7 +34,7 @@ class AcordaosTCU:
             self.urls.extend(urls)
 
     def parse_urls(self):
-        for url in self.urls:
+        for url in self.urls[2534:]:
             self.driver.get(url)
             # localiza no dom o container de "Outras Publicações"
             target_class = "panel-body"
