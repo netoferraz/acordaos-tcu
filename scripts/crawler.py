@@ -12,101 +12,120 @@ from typing import List, Dict, Union, Text
 import pandas as pd
 from loguru import logger
 from datetime import datetime
-datetime_now = datetime.now().strftime("%Y-%m-%d").replace("-","_")
+import sqlite3
+from configparser import ConfigParser
+import re
+
+datetime_now = datetime.now().strftime("%Y-%m-%d").replace("-", "_")
 logger.add(f"./logs/{datetime_now}_file.log")
 
 firefox_webdriver = firefox.webdriver.WebDriver
 firefox_webelements = firefox.webelement.FirefoxWebElement
 
+
 class AcordaosTCU:
+    # parametros de configuracao
+    config = ConfigParser()
+    config.read("config.ini")
+    table = config["db"]["tablename"]
+    dbname = config["db"]["name"]
 
     def __init__(self, driver: firefox_webdriver):
         if not isinstance(driver, firefox_webdriver):
             raise TypeError("A classe deve ser iniciada com um webdriver firefox.")
         self.driver = driver
-        self.container_of_acordaos = []
+        self.conn, self.cursor = AcordaosTCU.initiate_db()
 
-    def get_urls(self, years: Union[List[int], int]):
-        self.urls = []
-        if not isinstance(years, (List, int)):
-            raise TypeError("O input precisa ser int ou uma lista.")
-
-        if isinstance(years, List):
-            for year in years:
-                load_url_data = pd.read_csv(f"./data/tcu_{year}.csv")
-                urls = load_url_data["url"].unique().tolist()
-                self.urls.extend(urls)
-        else:
-            load_url_data = pd.read_csv(f"./data/tcu_{years}.csv")
-            urls = load_url_data["url"].unique().tolist()
-            self.urls.extend(urls)           
+    def get_urls(self):
+        # seleciona apenas as urns que não foram coletadas
+        query_string = f"SELECT url_lexml from {AcordaosTCU.table} where was_downloaded = 0"
+        self.urls = AcordaosTCU.query_db(query_string, self.cursor)
 
     def parse_urls(self):
-        for url in self.urls[3482:]:
-            self.driver.get(url)
-            # localiza no dom o container de "Outras Publicações"
-            target_class = "panel-body"
-            try:
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, target_class))
-                )
-            except (NoSuchElementException, TimeoutException) as error:
-                raise error("Não foi possível localizar os metadados")
-            else:
-                target_container = self.driver.find_elements_by_class_name(target_class)
+        for urls in self.urls:
+            for tupurl in urls:
+                url = tupurl[0]
+                self.driver.get(url)
+                # localiza no dom o container de "Outras Publicações"
+                target_class = "panel-body"
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, target_class))
+                    )
+                except (NoSuchElementException, TimeoutException) as error:
+                    raise error("Não foi possível localizar os metadados")
+                else:
+                    target_container = self.driver.find_elements_by_class_name(target_class)
 
-            # coleta os links originais do normativo
-            filter_elems = self.filter_elements_of_interest(
-                target_container, "Tribunal de Contas da União (text/html)"
-            )
-            if filter_elems:
-                if len(filter_elems) > 1:
-                    logger.debug("Há mais de um elemento no filtro.")
-                for elem in filter_elems:
-                    href = elem.find_elements_by_class_name("noprint")[0].get_attribute("href")
-                    self.driver.get(href)
-                    # identificar se o elemento de ajuda está presente na página
-                    pop_up_classname = "body > app-root:nth-child(1) > ajuda:nth-child(3)"
-                    try:
-                        WebDriverWait(self.driver, 10).until(
-                            EC.visibility_of(self.driver.find_element_by_css_selector(pop_up_classname))
+                # coleta os links originais do normativo
+                filter_elems = self.filter_elements_of_interest(
+                    target_container, "Tribunal de Contas da União (text/html)"
+                )
+                if filter_elems:
+                    if len(filter_elems) > 1:
+                        logger.debug("Há mais de um elemento no filtro.")
+                    for elem in filter_elems:
+                        href = elem.find_elements_by_class_name("noprint")[0].get_attribute(
+                            "href"
                         )
-                    except (NoSuchElementException, TimeoutException) as error:
-                        # raise error("Não foi possível o popup de ajuda")
-                        pass
-                    else:
-                        elemento_ajuda = self.driver.find_element_by_css_selector(pop_up_classname)
-                        # fecha o elemento de ajuda
+                        self.driver.get(href)
+                        # identificar se o elemento de ajuda está presente na página
+                        pop_up_classname = (
+                            "body > app-root:nth-child(1) > ajuda:nth-child(3)"
+                        )
                         try:
                             WebDriverWait(self.driver, 10).until(
-                                EC.invisibility_of_element_located((By.CLASS_NAME, 'tcu-spinner ng-star-inserted'))
+                                EC.visibility_of(
+                                    self.driver.find_element_by_css_selector(
+                                        pop_up_classname
+                                    )
+                                )
                             )
                         except (NoSuchElementException, TimeoutException) as error:
-                            raise error()
+                            # raise error("Não foi possível o popup de ajuda")
+                            pass
                         else:
+                            elemento_ajuda = self.driver.find_element_by_css_selector(
+                                pop_up_classname
+                            )
+                            # fecha o elemento de ajuda
                             try:
                                 WebDriverWait(self.driver, 10).until(
-                                    EC.visibility_of(self.driver.find_element_by_class_name("modal-close"))
+                                    EC.invisibility_of_element_located(
+                                        (By.CLASS_NAME, "tcu-spinner ng-star-inserted")
+                                    )
                                 )
                             except (NoSuchElementException, TimeoutException) as error:
-                                pass
+                                raise error()
                             else:
-                                elemento_ajuda.find_element_by_class_name("modal-close").click()
-                        #coleta os dados de interesse
-                        dados_acordao = self.coleta_dados_pagina_acordao(self.driver)
-                        dados_acordao['url'] = href
-                        self.container_of_acordaos.append(dados_acordao)
-                        logger.info(f"Finalizado coleta do link {url}.")
-            else:
-                logger.info("Não há links originais a serem parseados.")
+                                try:
+                                    WebDriverWait(self.driver, 10).until(
+                                        EC.visibility_of(
+                                            self.driver.find_element_by_class_name(
+                                                "modal-close"
+                                            )
+                                        )
+                                    )
+                                except (NoSuchElementException, TimeoutException) as error:
+                                    pass
+                                else:
+                                    elemento_ajuda.find_element_by_class_name(
+                                        "modal-close"
+                                    ).click()
+                            # coleta os dados de interesse
+                            dados_acordao = self.coleta_dados_pagina_acordao(self.driver)
+                            dados_acordao["url_tcu"] = href
+                            dados_acordao["urn"] = AcordaosTCU.search_for_urn(url)
+                            dados_acordao = {key: str(value).replace("\n", "") for key, value in dados_acordao.items()}
+                            # atualiza o banco de dados
+                            AcordaosTCU.update_a_record(dados_acordao, self.cursor)
+                            self.conn.commit()
+                            logger.info(f"Finalizado coleta do link {url}.")
+                else:
+                    logger.info("Não há links originais a serem parseados.")
+        # encerra as conexões com webdriver e banco de dados.
         self.driver.close()
-
-    def to_csv(self, filename: str):
-        df = pd.DataFrame(self.container_of_acordaos)
-        str_columns = df.select_dtypes('object').columns.tolist()
-        for col in str_columns:
-            df[col] = df[col].apply(lambda x : x.replace("\n", " ") if x else x)
-        df.to_csv(f"{filename}.csv", encoding='utf8', sep=';', index=False)
+        self.conn.close()
 
     @staticmethod
     def filter_elements_of_interest(
@@ -121,7 +140,7 @@ class AcordaosTCU:
             elem for elem in webelements if str_to_match in elem.text
         ]
         return filter_only_elements_of_interest
-    
+
     @staticmethod
     def coleta_dados_pagina_acordao(browser: firefox_webdriver) -> Dict[str, str]:
         if not isinstance(browser, firefox_webdriver):
@@ -180,7 +199,7 @@ class AcordaosTCU:
         ##numero acordao href
         try:
             num_acordao_href = AcordaosTCU.get_a_tag(elem_numero_acordao)
-        except (NoSuchElementException, UnboundLocalError):            
+        except (NoSuchElementException, UnboundLocalError):
             container["numero_acordao_href"] = None
         else:
             if num_acordao_href:
@@ -189,14 +208,18 @@ class AcordaosTCU:
                 container["numero_acordao_href"] = None
         ##relator
         try:
-            elem_relator = browser.find_element_by_id(mapping_dom_id_acordao["relator"]).text
+            elem_relator = browser.find_element_by_id(
+                mapping_dom_id_acordao["relator"]
+            ).text
         except NoSuchElementException:
             container["relator"] = None
         else:
             container["relator"] = elem_relator
         ##processo
         try:
-            elem_processo = browser.find_element_by_id(mapping_dom_id_acordao["processo"])
+            elem_processo = browser.find_element_by_id(
+                mapping_dom_id_acordao["processo"]
+            )
         except NoSuchElementException:
             container["processo"] = None
         else:
@@ -204,7 +227,7 @@ class AcordaosTCU:
         ##processo href
         try:
             processo_href = AcordaosTCU.get_a_tag(elem_processo)
-        except (NoSuchElementException, UnboundLocalError):            
+        except (NoSuchElementException, UnboundLocalError):
             container["processo_href"] = None
         else:
             if processo_href:
@@ -231,7 +254,9 @@ class AcordaosTCU:
             container["data_sessao"] = elem_data_sessao
         ##numero_da_ata
         try:
-            elem_numero_ata = browser.find_element_by_id(mapping_dom_id_acordao["numero_ata"])
+            elem_numero_ata = browser.find_element_by_id(
+                mapping_dom_id_acordao["numero_ata"]
+            )
         except NoSuchElementException:
             container["numero_ata"] = None
         else:
@@ -257,7 +282,9 @@ class AcordaosTCU:
             container["interessado_reponsavel_recorrente"] = elem_interessado
         ##entidade
         try:
-            elem_entidade = browser.find_element_by_id(mapping_dom_id_acordao["entidade"]).text
+            elem_entidade = browser.find_element_by_id(
+                mapping_dom_id_acordao["entidade"]
+            ).text
         except NoSuchElementException:
             container["entidade"] = None
         else:
@@ -291,28 +318,36 @@ class AcordaosTCU:
             container["repr_legal"] = elem_repr_legal
         ##assunto
         try:
-            elem_assunto = browser.find_element_by_id(mapping_dom_id_acordao["assunto"]).text
+            elem_assunto = browser.find_element_by_id(
+                mapping_dom_id_acordao["assunto"]
+            ).text
         except NoSuchElementException:
             container["assunto"] = None
         else:
             container["assunto"] = elem_assunto
         ##sumário
         try:
-            elem_sumario = browser.find_element_by_id(mapping_dom_id_acordao["sumario"]).text
+            elem_sumario = browser.find_element_by_id(
+                mapping_dom_id_acordao["sumario"]
+            ).text
         except NoSuchElementException:
             container["sumario"] = None
         else:
             container["sumario"] = elem_sumario
         ##acórdão
         try:
-            elem_acordao = browser.find_element_by_id(mapping_dom_id_acordao["acordao"]).text
+            elem_acordao = browser.find_element_by_id(
+                mapping_dom_id_acordao["acordao"]
+            ).text
         except NoSuchElementException:
             container["acordao"] = None
         else:
             container["acordao"] = elem_acordao
         ##quorum
         try:
-            elem_quorum = browser.find_element_by_id(mapping_dom_id_acordao["quorum"]).text
+            elem_quorum = browser.find_element_by_id(
+                mapping_dom_id_acordao["quorum"]
+            ).text
         except NoSuchElementException:
             container["quorum"] = None
         else:
@@ -352,5 +387,50 @@ class AcordaosTCU:
         else:
             return None
 
+    @staticmethod
+    def initiate_db() -> sqlite3.Cursor:
+        """
+        Conecta no banco sqlite
 
+        Atributos:
+            strcnx: string de conexão.
+        """
+        conn = sqlite3.connect(AcordaosTCU.dbname)
+        cur = conn.cursor()
+        return conn, cur
 
+    @staticmethod
+    def query_db(query_string: str, cursor: sqlite3.Cursor):
+        yield cursor.execute(query_string).fetchall()
+
+    @staticmethod
+    def update_a_record(container: Dict, cursor: sqlite3.Cursor) -> None:
+        parse_values_to_update = AcordaosTCU.format_update_string(container)
+        update_string = f"""
+        UPDATE {AcordaosTCU.table}
+        SET {parse_values_to_update} 
+        WHERE urn = '{container['urn']}'
+        """
+        cursor.execute(update_string)
+
+    @staticmethod
+    def format_update_string(container: Dict) -> str:
+        update_string = ""
+        for key, value in container.items():
+            if key != "urn":
+                if value and value != "None":
+                    update_string += f"{key} = '{value}', "
+        today = datetime.now().strftime("%Y-%m-%d")
+        update_string += f"was_downloaded = 1, downloaded_at = '{today}'"
+        update_string = update_string.strip()
+        return update_string
+
+    @staticmethod
+    def search_for_urn(url: str) -> str:
+        """
+        Filtra a urn da url que foi realizado o get
+        """
+        re_pattern = r"http(s)?:\/\/www\.\w+\.\w+\.\w+\/\w+\/"
+        look_for_urn = re.search(re_pattern, url).span()[1]
+        urn = url[look_for_urn:]
+        return urn
