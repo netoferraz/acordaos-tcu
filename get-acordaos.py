@@ -19,8 +19,11 @@ browser = Firefox(
 )
 
 acordaos = AcordaosTCU(browser)
-years = list(range(2015, 2018))
+#years = list(range(2000, 2010))
+years = [2008]
 acordaos.get_urls(years)
 acordaos.parse_urls()
-min_year, max_year = min(years), max(years)
-acordaos.to_csv(f"./data/acordaos_{min_year}_to_{max_year}")
+if len(years) != 1:
+    min_year, max_year = min(years), max(years)
+    acordaos.to_csv(f"./data/acordaos_{min_year}_to_{max_year}")
+acordaos.to_csv(f"./data/acordaos_{year}")
