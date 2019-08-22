@@ -11,6 +11,7 @@ CREATE TABLE download_acordaos (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
         urn TEXT NOT NULL,
         url_lexml TEXT,
+        urn_year INTEGER,
         numero_acordao TEXT,
         numero_acordao_href TEXT,
         relator TEXT,
@@ -37,5 +38,6 @@ CREATE TABLE download_acordaos (
 );
 """)
 cursor.execute("CREATE INDEX urnindex ON download_acordaos(urn);")
+cursor.execute("CREATE INDEX urnyear ON download_acordaos(urn_year);")
 conn.commit()
 conn.close()

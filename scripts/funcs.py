@@ -159,11 +159,13 @@ def initiate_webdriver() -> firefox_webdriver:
 def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
     for year in years:
         df = pd.read_csv(f"./data/tcu_{year}.csv", sep=",", encoding="utf8")
-        data_to_insert = [(data.urn, data.url) for data in df.itertuples()]
+        year_urn_pattern = '[0-9]{4}-[0-9]{2}-[0-9]{2}'
+        df['urn_year'] = df['urn'].apply(lambda x: int(re.search(year_urn_pattern,x).group(0)[:4]))
+        data_to_insert = [(data.urn, data.url, data.urn_year) for data in df.itertuples()]
         insert_into_db(
             data=data_to_insert,
             table_name="download_acordaos",
-            cols_names=["urn", "url_lexml"],
+            cols_names=["urn", "url_lexml", "urn_year"],
             cursor=cursor,
         )
 

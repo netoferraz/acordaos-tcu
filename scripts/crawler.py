@@ -43,7 +43,7 @@ class AcordaosTCU:
 
     def parse_urls(self):
         for urls in self.urls:
-            for tupurl in urls:
+            for tupurl in reversed(urls):
                 url = tupurl[0]
                 self.driver.get(url)
                 # localiza no dom o container de "Outras Publicações"
