@@ -36,10 +36,14 @@ class AcordaosTCU:
         self.driver = driver
         self.conn, self.cursor = AcordaosTCU.initiate_db()
 
-    def get_urls(self):
+    def get_urls(self, **kwargs):
         # seleciona apenas as urns que não foram coletadas
-        query_string = f"SELECT url_lexml from {AcordaosTCU.table} where was_downloaded = 0"
-        self.urls = AcordaosTCU.query_db(query_string, self.cursor)
+        alter_query = kwargs.get("alter_query", None)
+        if not alter_query:
+            query_string = f"SELECT url_lexml from {AcordaosTCU.table} where was_downloaded = 0"
+            self.urls = AcordaosTCU.query_db(query_string, self.cursor)
+        else:
+            self.urls = AcordaosTCU.query_db(alter_query, self.cursor)
 
     def parse_urls(self):
         for urls in self.urls:
