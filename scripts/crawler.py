@@ -40,7 +40,9 @@ class AcordaosTCU:
         # seleciona apenas as urns que não foram coletadas
         alter_query = kwargs.get("alter_query", None)
         if not alter_query:
-            query_string = f"SELECT url_lexml from {AcordaosTCU.table} where was_downloaded = 0"
+            query_string = (
+                f"SELECT url_lexml from {AcordaosTCU.table} where was_downloaded = 0"
+            )
             self.urls = AcordaosTCU.query_db(query_string, self.cursor)
         else:
             self.urls = AcordaosTCU.query_db(alter_query, self.cursor)
@@ -59,7 +61,9 @@ class AcordaosTCU:
                 except (NoSuchElementException, TimeoutException) as error:
                     raise error("Não foi possível localizar os metadados")
                 else:
-                    target_container = self.driver.find_elements_by_class_name(target_class)
+                    target_container = self.driver.find_elements_by_class_name(
+                        target_class
+                    )
 
                 # coleta os links originais do normativo
                 filter_elems = self.filter_elements_of_interest(
@@ -69,9 +73,9 @@ class AcordaosTCU:
                     if len(filter_elems) > 1:
                         logger.debug("Há mais de um elemento no filtro.")
                     for elem in filter_elems:
-                        href = elem.find_elements_by_class_name("noprint")[0].get_attribute(
-                            "href"
-                        )
+                        href = elem.find_elements_by_class_name("noprint")[
+                            0
+                        ].get_attribute("href")
                         self.driver.get(href)
                         # identificar se o elemento de ajuda está presente na página
                         pop_up_classname = (
@@ -86,7 +90,9 @@ class AcordaosTCU:
                                 )
                             )
                         except (NoSuchElementException, TimeoutException) as error:
-                            # raise error("Não foi possível o popup de ajuda")
+                            logger.warning(
+                                "Não foi encontrado elemento de ajuda na página."
+                            )
                             pass
                         else:
                             elemento_ajuda = self.driver.find_element_by_css_selector(
@@ -100,7 +106,9 @@ class AcordaosTCU:
                                     )
                                 )
                             except (NoSuchElementException, TimeoutException) as error:
-                                raise error()
+                                logger.warning(
+                                    "Não foi encontrado o elemento tcu-spinner ng-star-inserted."
+                                )
                             else:
                                 try:
                                     WebDriverWait(self.driver, 10).until(
@@ -110,21 +118,29 @@ class AcordaosTCU:
                                             )
                                         )
                                     )
-                                except (NoSuchElementException, TimeoutException) as error:
+                                except (
+                                    NoSuchElementException,
+                                    TimeoutException,
+                                ) as error:
                                     pass
                                 else:
                                     elemento_ajuda.find_element_by_class_name(
                                         "modal-close"
                                     ).click()
                             # coleta os dados de interesse
-                            dados_acordao = self.coleta_dados_pagina_acordao(self.driver)
+                            dados_acordao = self.coleta_dados_pagina_acordao(
+                                self.driver
+                            )
                             dados_acordao["url_tcu"] = href
                             dados_acordao["urn"] = AcordaosTCU.search_for_urn(url)
-                            dados_acordao = {key: str(value).replace("\n", "").replace("'"," ") for key, value in dados_acordao.items()}
+                            dados_acordao = {
+                                key: str(value).replace("\n", "").replace("'", " ")
+                                for key, value in dados_acordao.items()
+                            }
                             # atualiza o banco de dados
                             AcordaosTCU.update_a_record(dados_acordao, self.cursor)
                             self.conn.commit()
-                            logger.info(f"Finalizado coleta do link {url}.")
+                            logger.info(f"Finalizado a coleta do link {url}.")
                 else:
                     logger.info("Não há links originais a serem parseados.")
         # encerra as conexões com webdriver e banco de dados.
