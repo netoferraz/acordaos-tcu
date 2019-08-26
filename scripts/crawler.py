@@ -107,7 +107,11 @@ class AcordaosTCU:
                                 )
                             except (NoSuchElementException, TimeoutException) as error:
                                 logger.warning(
+<<<<<<< HEAD
                                     "Não foi encontrado o elemento tcu-spinner ng-star-inserted."
+=======
+                                    "Não foi o elemento tcu-spinner ng-star-inserted."
+>>>>>>> cd494448548e16da74e8a39bf22d0c64ca744da3
                                 )
                             else:
                                 try:
@@ -122,7 +126,11 @@ class AcordaosTCU:
                                     NoSuchElementException,
                                     TimeoutException,
                                 ) as error:
+<<<<<<< HEAD
                                     pass
+=======
+                                    logger.warning("Não foi o elemento modal-close.")
+>>>>>>> cd494448548e16da74e8a39bf22d0c64ca744da3
                                 else:
                                     elemento_ajuda.find_element_by_class_name(
                                         "modal-close"
