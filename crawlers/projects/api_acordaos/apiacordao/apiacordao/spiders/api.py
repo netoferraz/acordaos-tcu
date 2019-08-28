@@ -6,19 +6,32 @@ from ..items import AcordaoItem
 import re
 import json
 from datetime import datetime
-
+import sqlite3 as sql
 
 class ApiSpider(scrapy.Spider):
     name = "api"
 
-    def start_requests(self):
-        with open("../../../../data/api/parsed/2009.json", "r") as _:
-            container = json.load(_)
-            for data in container:
-                urn = data["urn"]
-                url = data["url"]
-                yield Request(url, cb_kwargs=dict(urn=urn))
+    def __init__(self, year):
+        self.year = year
+        self.conn = sql.connect("../../../../db/acordaos-download.db")
+        self.cursor = self.conn.cursor()
 
+    def start_requests(self):
+        #faz a query para coletar as urls do lexml
+        lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where urn_year = {self.year} and was_downloaded =0").fetchall()
+        for url in lexml_urls:
+            url = url[0]
+            yield Request(url, callback=self.parse_api_url)
+
+    def parse_api_url(self, response):
+        urn = response.url.split("/")[-1]
+        links = response.css(".noprint::attr(href)").get()
+        if isinstance(links, list):
+            links = [link for link in links if 'Proxy' not in link][0]
+        base_id = re.sub("KEY%3A", "", links.split("/")[-4])
+        url = f"https://pesquisa.apps.tcu.gov.br/rest/publico/base/acordao-completo/documento?termo=*&filtro=KEY:{base_id}&ordenacao=DTRELEVANCIA desc&quantidade=1&inicio=0&sinonimos=false"
+        yield Request(url, callback=self.parse, cb_kwargs=dict(urn=urn))
+    
     def parse(self, response, urn):
         res = json.loads(response.body, encoding="utf8")
         res = res["documentos"][0]
@@ -56,5 +69,5 @@ class ApiSpider(scrapy.Spider):
         return cleantext.replace("\t", " ").replace("\n", " ").strip()
 
     def clean_text(self, texto: str) -> str:
-        texto = texto.replace("\xa0", "").replace("\t", " ").replace("\n", " ").strip()
+        texto = texto.replace("\xa0", "").replace("\t", " ").replace("\n", " ").replace("'"," ").strip()
         return texto
