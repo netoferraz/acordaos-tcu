@@ -92,7 +92,7 @@ def select_files_based_on_year(path: Path, year: str) -> List[Path]:
 
 def pipeline_to_get_urn(
     path: Path, years: List[str], patterns: List[str]
-) -> List[Dict]:
+) -> (List[Dict], List[int]):
     """
     Pipeline para coletar as urns de um determinado padrão ao longo de vários arquivos.
     
@@ -108,10 +108,13 @@ def pipeline_to_get_urn(
         raise TypeError("O parâmetro years precisa ser uma lista.")
     if not isinstance(patterns, List):
         raise TypeError("O parâmetro patterns precisa ser uma lista.")
+    #criar container para armazenar os anos que possuem dados
+    filtered_years = []
     for year in years:
         container_of_json_year = select_files_based_on_year(path, year)
         if not container_of_json_year:
-            raise ValueError(f"Não há dados relativos ao {path} e {year}.")
+            print(f"Não há dados relativos ao {path} e {year}.")
+            continue
         # sort by filename
         container_of_json_year = sorted(
             container_of_json_year, key=lambda x: int(x.name.split("_")[0])
@@ -125,9 +128,10 @@ def pipeline_to_get_urn(
             urn_list = get_urn(pattern, df)
             container.append(urn_list)
             del urn_list
+        filtered_years.append(year)
         del df
         gc.collect()
-    return container
+    return container, filtered_years
 
 
 def create_df_for_urn_data_and_save(data: Dict, filename: str) -> None:
