@@ -25,7 +25,7 @@ class ApiSpider(scrapy.Spider):
 
     def parse_api_url(self, response):
         urn = response.url.split("/")[-1]
-        links = response.css(".noprint::attr(href)").get()
+        links = response.css(".noprint::attr(href)").getall()
         if isinstance(links, list):
             links = [link for link in links if 'Proxy' not in link][0]
         base_id = re.sub("KEY%3A", "", links.split("/")[-4])
