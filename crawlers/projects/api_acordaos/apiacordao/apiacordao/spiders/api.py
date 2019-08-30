@@ -13,16 +13,15 @@ class ApiSpider(scrapy.Spider):
 
     def __init__(self, **kwargs):
         self.year = kwargs.get('year', None)
-        #self.year = year
         self.conn = sql.connect("../../../../db/acordaos-download.db")
         self.cursor = self.conn.cursor()
 
     def start_requests(self):
         #faz a query para coletar as urls do lexml
         if self.year:
-            lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where urn_year = {self.year} and was_downloaded =0").fetchall()
+            lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where urn_year = {self.year} and was_downloaded = 0").fetchall()
         else:
-            lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where was_downloaded =0").fetchall()
+            lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where was_downloaded = 0").fetchall()
         for url in lexml_urls:
             url = url[0]
             yield Request(url, callback=self.parse_api_url)
@@ -32,12 +31,15 @@ class ApiSpider(scrapy.Spider):
         links = response.css(".noprint::attr(href)").getall()
         if isinstance(links, list):
             links = [link for link in links if 'Proxy' not in link][0]
-        base_id = re.sub("KEY%3A", "", links.split("/")[-4])
-        url = f"https://pesquisa.apps.tcu.gov.br/rest/publico/base/acordao-completo/documento?termo=*&filtro=KEY:{base_id}&ordenacao=DTRELEVANCIA desc&quantidade=1&inicio=0&sinonimos=false"
-        yield Request(url, callback=self.parse, cb_kwargs=dict(urn=urn))
+        for link in links:
+            base_id = re.sub("KEY%3A", "", link.split("/")[-4])
+            url = f"https://pesquisa.apps.tcu.gov.br/rest/publico/base/acordao-completo/documento?termo=*&filtro=KEY:{base_id}&ordenacao=DTRELEVANCIA desc&quantidade=1&inicio=0&sinonimos=false"
+            yield Request(url, callback=self.parse, cb_kwargs=dict(urn=urn))
     
     def parse(self, response, urn):
         res = json.loads(response.body, encoding="utf8")
+        if res['quantidadeEncontrada'] == 0:
+            yield None
         res = res["documentos"][0]
         data = AcordaoItem()
         data["urn"] = urn
