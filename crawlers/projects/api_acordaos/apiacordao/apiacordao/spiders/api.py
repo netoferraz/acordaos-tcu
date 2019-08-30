@@ -11,14 +11,18 @@ import sqlite3 as sql
 class ApiSpider(scrapy.Spider):
     name = "api"
 
-    def __init__(self, year):
-        self.year = year
+    def __init__(self, **kwargs):
+        self.year = kwargs.get('year', None)
+        #self.year = year
         self.conn = sql.connect("../../../../db/acordaos-download.db")
         self.cursor = self.conn.cursor()
 
     def start_requests(self):
         #faz a query para coletar as urls do lexml
-        lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where urn_year = {self.year} and was_downloaded =0").fetchall()
+        if self.year:
+            lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where urn_year = {self.year} and was_downloaded =0").fetchall()
+        else:
+            lexml_urls = self.cursor.execute(f"SELECT url_lexml from download_acordaos where was_downloaded =0").fetchall()
         for url in lexml_urls:
             url = url[0]
             yield Request(url, callback=self.parse_api_url)
