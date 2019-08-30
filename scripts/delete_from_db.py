@@ -2,7 +2,7 @@ from scripts.funcs import initiate_db
 
 conn, cur = initiate_db("./db/acordaos-download.db")
 
-with open("./logs/urns_to_delete_2.log", "r", encoding='utf8') as f:
+with open("./logs/urns_to_delete_3.log", "r", encoding='utf8') as f:
     d = f.readlines()
     for urn in d:
         urn = urn.replace("\n","")

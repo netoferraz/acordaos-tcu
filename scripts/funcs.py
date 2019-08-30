@@ -5,7 +5,7 @@ import re
 import gc
 from configparser import ConfigParser
 from pathlib import Path
-from typing import List, Dict, Union, Text, Tuple
+from typing import List, Dict, Union, Text, Tuple, Iterable
 from numbers import Number
 from pathlib import Path
 from selenium.webdriver import Firefox
@@ -210,3 +210,29 @@ def search_for_urn(logmsg: str) -> str:
 
 def query_db(query_string: str, cursor: sqlite3.Cursor):
     yield cursor.execute(query_string).fetchall()
+
+
+def mask_cnpj(texto: str) -> Union[str, None]:
+    """
+    Anonimização de CPF
+    """
+    formatted_text = texto
+    pattern = '[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}'
+    cpfinder = re.compile(pattern)
+    if isinstance(texto, str):
+        is_cpf = cpfinder.findall(texto)
+        if is_cpf:
+            for cpf in is_cpf:
+                masked_cpf = f"XXX-{cpf[4:-3]}-XX"
+                formatted_text = formatted_text.replace(cpf, masked_cpf)
+            return formatted_text
+    else:
+        return None
+
+def ResultIter(cursor: sqlite3.Cursor, query: str) -> Iterable:
+    'An iterator to keep memory usage down on quering database'
+    results = cursor.execute(query).fetchall()
+    if not results:
+        yield None
+    for result in results:
+        yield result
