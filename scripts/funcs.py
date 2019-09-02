@@ -5,7 +5,7 @@ import re
 import gc
 from configparser import ConfigParser
 from pathlib import Path
-from typing import List, Dict, Union, Text, Tuple
+from typing import List, Dict, Union, Text, Tuple, Iterable
 from numbers import Number
 from pathlib import Path
 from selenium.webdriver import Firefox
@@ -92,7 +92,7 @@ def select_files_based_on_year(path: Path, year: str) -> List[Path]:
 
 def pipeline_to_get_urn(
     path: Path, years: List[str], patterns: List[str]
-) -> List[Dict]:
+) -> (List[Dict], List[int]):
     """
     Pipeline para coletar as urns de um determinado padrão ao longo de vários arquivos.
     
@@ -108,10 +108,13 @@ def pipeline_to_get_urn(
         raise TypeError("O parâmetro years precisa ser uma lista.")
     if not isinstance(patterns, List):
         raise TypeError("O parâmetro patterns precisa ser uma lista.")
+    #criar container para armazenar os anos que possuem dados
+    filtered_years = []
     for year in years:
         container_of_json_year = select_files_based_on_year(path, year)
         if not container_of_json_year:
-            raise ValueError(f"Não há dados relativos ao {path} e {year}.")
+            print(f"Não há dados relativos ao {path} e {year}.")
+            continue
         # sort by filename
         container_of_json_year = sorted(
             container_of_json_year, key=lambda x: int(x.name.split("_")[0])
@@ -125,9 +128,10 @@ def pipeline_to_get_urn(
             urn_list = get_urn(pattern, df)
             container.append(urn_list)
             del urn_list
+        filtered_years.append(year)
         del df
         gc.collect()
-    return container
+    return container, filtered_years
 
 
 def create_df_for_urn_data_and_save(data: Dict, filename: str) -> None:
@@ -156,7 +160,7 @@ def initiate_webdriver() -> firefox_webdriver:
     return browser
 
 
-def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
+def load_csv_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
     for year in years:
         df = pd.read_csv(f"./data/tcu_{year}.csv", sep=",", encoding="utf8")
         year_urn_pattern = '[0-9]{4}-[0-9]{2}-[0-9]{2}'
@@ -169,6 +173,25 @@ def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
             cursor=cursor,
         )
 
+def load_json_into_db(filename: Path, cursor: sqlite3.Cursor) -> None:
+    data_to_insert =  []
+    with open(filename, 'r', encoding='utf8') as f:
+        d = json.load(f)
+        cols_name = list(d[0].keys())
+        cols_name.append('urn')
+        for data in d:
+            data['urn'] = 'NA'
+            instance_of_data = tuple(value for value in data.values())
+            data_to_insert.append(instance_of_data)
+        insert_into_db(
+            data=data_to_insert,
+            table_name="download_acordaos",
+            cols_names=cols_name,
+            cursor=cursor,
+        )
+
+
+ 
 
 def initiate_db(strcnx: str) -> sqlite3.Cursor:
     """
@@ -206,3 +229,29 @@ def search_for_urn(logmsg: str) -> str:
 
 def query_db(query_string: str, cursor: sqlite3.Cursor):
     yield cursor.execute(query_string).fetchall()
+
+
+def mask_cnpj(texto: str) -> Union[str, None]:
+    """
+    Anonimização de CPF
+    """
+    formatted_text = texto
+    pattern = '[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}'
+    cpfinder = re.compile(pattern)
+    if isinstance(texto, str):
+        is_cpf = cpfinder.findall(texto)
+        if is_cpf:
+            for cpf in is_cpf:
+                masked_cpf = f"XXX-{cpf[4:-3]}-XX"
+                formatted_text = formatted_text.replace(cpf, masked_cpf)
+            return formatted_text
+    else:
+        return None
+
+def ResultIter(cursor: sqlite3.Cursor, query: str) -> Union[Iterable, None]:
+    'An iterator to keep memory usage down on quering database'
+    results = cursor.execute(query).fetchall()
+    if not results:
+        yield None
+    for result in results:
+        yield result
