@@ -59,7 +59,7 @@ class AcordaosTCU:
                         EC.presence_of_element_located((By.CLASS_NAME, target_class))
                     )
                 except (NoSuchElementException, TimeoutException) as error:
-                    raise error("Não foi possível localizar os metadados")
+                    logger.warning("Não foi encontrado o elemento Outras Publicações.")
                 else:
                     target_container = self.driver.find_elements_by_class_name(
                         target_class
