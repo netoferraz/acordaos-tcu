@@ -38,17 +38,18 @@ class ApiSpider(scrapy.Spider):
     
     def parse(self, response, urn):
         res = json.loads(response.body, encoding="utf8")
-        if res['quantidadeEncontrada'] == 0:
+        if res['quantidadeEncontrada'] == 0 or res["documentos"][0]["SITUACAO"] == "INVALIDADO":
             yield None
         res = res["documentos"][0]
         data = AcordaoItem()
         data["urn"] = urn
         data["urn_year"] = re.search("\d{4}-\d{2}-\d{2}", urn).group(0)[:4]
         data["numero_acordao"] = self.clean_text(res["NUMACORDAO"])
-        data["numero_acordao_href"] = res["URLARQUIVO"].strip()
+        if 'URLARQUIVO' in res.keys():
+            data["numero_acordao_href"] = res["URLARQUIVO"].strip()
+            data["processo_href"] = res["URLARQUIVO"]
         data["relator"] = self.clean_text(res["RELATOR"])
         data["processo"] = self.clean_text(self.remove_tags_html(res["PROC"]))
-        data["processo_href"] = res["URLARQUIVO"]
         data["tipo_processo"] = self.clean_text(res["ASSUNTO"])
         data["data_sessao"] = self.clean_text(res["DATASESSAO"])
         data["numero_ata"] = self.clean_text(f"{res['NUMATA']}-{res['COLEGIADO']}")

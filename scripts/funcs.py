@@ -160,7 +160,7 @@ def initiate_webdriver() -> firefox_webdriver:
     return browser
 
 
-def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
+def load_csv_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
     for year in years:
         df = pd.read_csv(f"./data/tcu_{year}.csv", sep=",", encoding="utf8")
         year_urn_pattern = '[0-9]{4}-[0-9]{2}-[0-9]{2}'
@@ -173,6 +173,25 @@ def load_data_into_db(years: List[int], cursor: sqlite3.Cursor) -> None:
             cursor=cursor,
         )
 
+def load_json_into_db(filename: Path, cursor: sqlite3.Cursor) -> None:
+    data_to_insert =  []
+    with open(filename, 'r', encoding='utf8') as f:
+        d = json.load(f)
+        cols_name = list(d[0].keys())
+        cols_name.append('urn')
+        for data in d:
+            data['urn'] = 'NA'
+            instance_of_data = tuple(value for value in data.values())
+            data_to_insert.append(instance_of_data)
+        insert_into_db(
+            data=data_to_insert,
+            table_name="download_acordaos",
+            cols_names=cols_name,
+            cursor=cursor,
+        )
+
+
+ 
 
 def initiate_db(strcnx: str) -> sqlite3.Cursor:
     """
@@ -229,7 +248,7 @@ def mask_cnpj(texto: str) -> Union[str, None]:
     else:
         return None
 
-def ResultIter(cursor: sqlite3.Cursor, query: str) -> Iterable:
+def ResultIter(cursor: sqlite3.Cursor, query: str) -> Union[Iterable, None]:
     'An iterator to keep memory usage down on quering database'
     results = cursor.execute(query).fetchall()
     if not results:

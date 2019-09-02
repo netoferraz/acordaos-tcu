@@ -1,7 +1,7 @@
 from scripts.funcs import mask_cnpj, ResultIter, initiate_db
 conn, cur = initiate_db("./db/acordaos-download.db")
 QUERY = """SELECT id, interessado_reponsavel_recorrente, repr_legal,sumario, acordao, quorum, 
-relatorio, voto from download_acordaos"""
+relatorio, voto from download_acordaos where urn_year = 2018 or urn_year = 2019"""
 
 mapping_index_feature = {
     1 : 'interessado_reponsavel_recorrente',
@@ -15,7 +15,7 @@ mapping_index_feature = {
 }
 
 query_generator = ResultIter(cur, QUERY)
-with open("./logs/anonimizacao_logging.txt", 'w', encoding='utf8') as log:
+with open("./logs/anonimizacao_logging_000.txt", 'w', encoding='utf8') as log:
     for data in query_generator:
         for index, feature in enumerate(data[1:], 1):
             #verifica se a feature tem cnpj caracterizado
