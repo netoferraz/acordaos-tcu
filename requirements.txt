@@ -41,7 +41,7 @@ python-dateutil==2.8.0
 pytz==2019.2
 queuelib==1.5.0
 requests==2.22.0
-Scrapy==1.7.3
+Scrapy==1.8.1
 scrapy-user-agents==0.1.1
 selenium==3.141.0
 service-identity==18.1.0
